@@ -154,23 +154,6 @@ static_library("owt_sdk_base") {
       "sdk/base/desktopcapturer.cc",
       "sdk/base/desktopcapturer.h",
       "sdk/base/win/d3dnativeframe.h",
-      # For low latency streaming we disable MSDK components
-      #"sdk/base/win/msdkvideodecoder.cc",
-      #"sdk/base/win/msdkvideodecoder.h",
-      #"sdk/base/win/msdkvideoencoder.cc",
-      #"sdk/base/win/msdkvideoencoder.h",
-      #"sdk/base/win/msdkvideodecoderfactory.cc",
-      #"sdk/base/win/msdkvideodecoderfactory.h",
-      #"sdk/base/win/msdkvideoencoderfactory.cc",
-      #"sdk/base/win/msdkvideoencoderfactory.h",
-      #"sdk/base/win/base_allocator.cc",
-      #"sdk/base/win/base_allocator.h",
-      #"sdk/base/win/d3d_allocator.cc",
-      #"sdk/base/win/d3d_allocator.h",
-      #"sdk/base/win/sysmem_allocator.h",
-      #"sdk/base/win/sysmem_allocator.cc",
-      #"sdk/base/win/msdkvideobase.cc",
-      #"sdk/base/win/msdkvideobase.h",
       "sdk/base/win/videorendererwin.cc",
       "sdk/base/win/videorendererwin.h",
       "sdk/base/windowcapturer.cc",
@@ -178,6 +161,28 @@ static_library("owt_sdk_base") {
     ]
   }
 
+  if (woogeen_msdk_header_root != "") {
+    sources += [
+      "sdk/base/win/msdkvideodecoder.cc",
+      "sdk/base/win/msdkvideodecoder.h",
+      "sdk/base/win/msdkvideoencoder.cc",
+      "sdk/base/win/msdkvideoencoder.h",
+      "sdk/base/win/msdkvideodecoderfactory.cc",
+      "sdk/base/win/msdkvideodecoderfactory.h",
+      "sdk/base/win/msdkvideoencoderfactory.cc",
+      "sdk/base/win/msdkvideoencoderfactory.h",
+      "sdk/base/win/base_allocator.cc",
+      "sdk/base/win/base_allocator.h",
+      "sdk/base/win/d3d_allocator.cc",
+      "sdk/base/win/d3d_allocator.h",
+      "sdk/base/win/sysmem_allocator.h",
+      "sdk/base/win/sysmem_allocator.cc",
+      "sdk/base/win/msdkvideobase.cc",
+      "sdk/base/win/msdkvideobase.h",
+    ]
+    defines += [ "OWT_USE_MSDK" ]
+  }
+  
   if (!is_ios) {
     sources += [
       "sdk/base/customizedvideodecoderfactory.cc",

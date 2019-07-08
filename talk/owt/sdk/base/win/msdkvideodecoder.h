@@ -120,6 +120,7 @@ private:
 #ifdef OWT_DEBUG_DEC
     FILE *input;
 #endif
+    FILE* decoder_latency_;
 };
 }  // namespace base
 }  // namespace owt

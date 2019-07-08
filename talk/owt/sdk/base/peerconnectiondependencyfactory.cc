@@ -96,6 +96,11 @@ void PeerConnectionDependencyFactory::
   if (GlobalConfiguration::GetLowLatencyStreamingEnabled()) {
     field_trial_ += "OWT-LowLatencyMode/Enabled/";
   }
+  
+  if (GlobalConfiguration::GetLatencyLoggingEnabled()) {
+    field_trial_ += "OWT-Log-Latency-To-File/Enabled/";
+  }
+
   if (GlobalConfiguration::GetAECEnabled() &&
       GlobalConfiguration::GetAEC3Enabled()) {
     field_trial_ += "OWT-EchoCanceller3/Enabled/";
@@ -131,12 +136,12 @@ void PeerConnectionDependencyFactory::
   if (render_hardware_acceleration_enabled_) {
     if (!encoded_frame_) {
 // Disable MSDK based factories during compilation.
-#if 0
+#if defined(OWT_USE_MSDK)
       encoder_factory.reset(new MSDKVideoEncoderFactory());
 #endif
     }
     if (!GlobalConfiguration::GetCustomizedVideoDecoderEnabled()) {
-#if 0
+#if defined(OWT_USE_MSDK)
       decoder_factory.reset(new MSDKVideoDecoderFactory());
 #endif
     }

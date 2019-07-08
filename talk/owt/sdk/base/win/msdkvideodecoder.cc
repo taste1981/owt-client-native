@@ -7,6 +7,8 @@
 #include <fstream>
 #endif
 #include "msdkvideobase.h"
+#include "system_wrappers/include/clock.h"
+#include "system_wrappers/include/field_trial.h"
 #include "talk/owt/sdk/base/nativehandlebuffer.h"
 #include "talk/owt/sdk/base/win/d3dnativeframe.h"
 #include "talk/owt/sdk/base/win/msdkvideodecoder.h"
@@ -14,26 +16,26 @@
 
 using namespace rtc;
 
-#define MSDK_BS_INIT_SIZE (1024*1024)
+#define MSDK_BS_INIT_SIZE (1024 * 1024)
 enum { kMSDKCodecPollMs = 10 };
 enum { MSDK_MSG_HANDLE_INPUT = 0 };
 
 namespace owt {
 namespace base {
 int32_t MSDKVideoDecoder::Release() {
-    WipeMfxBitstream(&m_mfxBS);
-    MSDK_SAFE_DELETE(m_pmfxDEC);
-    if (m_mfxSession) {
-      MSDKFactory* factory = MSDKFactory::Get();
-      if (factory) {
-        factory->UnloadMSDKPlugin(m_mfxSession, &m_pluginID);
-        factory->DestroySession(m_mfxSession);
-      }
+  WipeMfxBitstream(&m_mfxBS);
+  MSDK_SAFE_DELETE(m_pmfxDEC);
+  if (m_mfxSession) {
+    MSDKFactory* factory = MSDKFactory::Get();
+    if (factory) {
+      factory->UnloadMSDKPlugin(m_mfxSession, &m_pluginID);
+      factory->DestroySession(m_mfxSession);
     }
-    m_pMFXAllocator.reset();
-    MSDK_SAFE_DELETE_ARRAY(m_pInputSurfaces);
-    inited_ = false;
-    return WEBRTC_VIDEO_CODEC_OK;
+  }
+  m_pMFXAllocator.reset();
+  MSDK_SAFE_DELETE_ARRAY(m_pInputSurfaces);
+  inited_ = false;
+  return WEBRTC_VIDEO_CODEC_OK;
 }
 
 MSDKVideoDecoder::MSDKVideoDecoder(webrtc::VideoCodecType type)
@@ -54,13 +56,23 @@ MSDKVideoDecoder::MSDKVideoDecoder(webrtc::VideoCodecType type)
 #ifdef OWT_DEBUG_DEC
   input = fopen("input.bin", "wb");
 #endif
+  decoder_latency_ = nullptr;
+  if (webrtc::field_trial::IsEnabled("OWT-Log-Latency-To-File")) {
+    char dump_file_name[128];
+    snprintf(dump_file_name, 128, "decoder_latency_mvd-%p.txt", this);
+    decoder_latency_ = fopen(dump_file_name, "w+");
+  }
 }
 
 MSDKVideoDecoder::~MSDKVideoDecoder() {
   ntp_time_ms_.clear();
   timestamps_.clear();
-  if (decoder_thread_.get() != nullptr){
+  if (decoder_thread_.get() != nullptr) {
     decoder_thread_->Stop();
+  }
+  if (decoder_latency_ != nullptr) {
+    fclose(decoder_latency_);
+    decoder_latency_ = nullptr;
   }
 }
 
@@ -77,7 +89,7 @@ bool MSDKVideoDecoder::CreateD3DDevice() {
 
   ZeroMemory(&present_params, sizeof(present_params));
   HWND video_window = GetDesktopWindow();
-  if (video_window == nullptr){
+  if (video_window == nullptr) {
     return false;
   }
   RECT r;
@@ -85,29 +97,29 @@ bool MSDKVideoDecoder::CreateD3DDevice() {
 
   present_params.BackBufferWidth = r.right - r.left;
   present_params.BackBufferHeight = r.bottom - r.top;
-  present_params.BackBufferFormat = D3DFMT_X8R8G8B8; //Only apply this if we're rendering full screen
+  present_params.BackBufferFormat =
+      D3DFMT_X8R8G8B8;  // Only apply this if we're rendering full screen
   present_params.BackBufferCount = 1;
   present_params.SwapEffect = D3DSWAPEFFECT_DISCARD;
   present_params.hDeviceWindow = video_window;
   present_params.FullScreen_RefreshRateInHz = D3DPRESENT_RATE_DEFAULT;
-  present_params.Flags = D3DPRESENTFLAG_LOCKABLE_BACKBUFFER|D3DPRESENTFLAG_VIDEO;
+  present_params.Flags =
+      D3DPRESENTFLAG_LOCKABLE_BACKBUFFER | D3DPRESENTFLAG_VIDEO;
   present_params.Windowed = TRUE;
   present_params.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
   hr = m_pD3D9->CreateDeviceEx(
-        D3DADAPTER_DEFAULT,
-        D3DDEVTYPE_HAL,
-        (HWND)video_window,
-        D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_MULTITHREADED | D3DCREATE_FPU_PRESERVE,
-        &present_params,
-        nullptr,
-        &m_pD3DD9);
+      D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, (HWND)video_window,
+      D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_MULTITHREADED |
+          D3DCREATE_FPU_PRESERVE,
+      &present_params, nullptr, &m_pD3DD9);
   if (FAILED(hr))
     return false;
 
   hr = m_pD3DD9->ResetEx(&present_params, nullptr);
   if (FAILED(hr))
     return false;
-  hr = m_pD3DD9->Clear(0, nullptr, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0), 1.0f, 0);
+  hr = m_pD3DD9->Clear(0, nullptr, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 0),
+                       1.0f, 0);
   if (FAILED(hr))
     return false;
 
@@ -124,23 +136,24 @@ bool MSDKVideoDecoder::CreateD3DDevice() {
   return true;
 }
 
-int32_t MSDKVideoDecoder::InitDecode(const webrtc::VideoCodec* codecSettings, int32_t numberOfCores) {
-
+int32_t MSDKVideoDecoder::InitDecode(const webrtc::VideoCodec* codecSettings,
+                                     int32_t numberOfCores) {
   RTC_LOG(LS_ERROR) << "InitDecode enter";
-  if (codecSettings == NULL){
+  if (codecSettings == NULL) {
     RTC_LOG(LS_ERROR) << "NULL codec settings";
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  RTC_CHECK(codecSettings->codecType == codecType_) << "Unsupported codec type" 
-      << codecSettings->codecType << " for " << codecType_;
+  RTC_CHECK(codecSettings->codecType == codecType_)
+      << "Unsupported codec type" << codecSettings->codecType << " for "
+      << codecType_;
   timestamps_.clear();
   ntp_time_ms_.clear();
 
   if (&codec_ != codecSettings)
     codec_ = *codecSettings;
 
-  return decoder_thread_->Invoke<int32_t>(RTC_FROM_HERE,
-      Bind(&MSDKVideoDecoder::InitDecodeOnCodecThread, this));
+  return decoder_thread_->Invoke<int32_t>(
+      RTC_FROM_HERE, Bind(&MSDKVideoDecoder::InitDecodeOnCodecThread, this));
 }
 
 int32_t MSDKVideoDecoder::Reset() {
@@ -159,7 +172,7 @@ int32_t MSDKVideoDecoder::InitDecodeOnCodecThread() {
   RTC_LOG(LS_ERROR) << "InitDecodeOnCodecThread() enter";
   CheckOnCodecThread();
 
-  // Set videoParamExtracted flag to false to make sure the delayed 
+  // Set videoParamExtracted flag to false to make sure the delayed
   // DecoderHeader call will happen after Init.
   m_video_param_extracted = false;
 
@@ -179,7 +192,7 @@ int32_t MSDKVideoDecoder::InitDecodeOnCodecThread() {
     MSDKFactory* factory = MSDKFactory::Get();
     m_mfxSession = factory->CreateSession();
     if (!m_mfxSession) {
-      return  WEBRTC_VIDEO_CODEC_ERROR;
+      return WEBRTC_VIDEO_CODEC_ERROR;
     }
     if (codec_.codecType == webrtc::kVideoCodecVP8) {
       codec_id = MFX_CODEC_VP8;
@@ -230,7 +243,8 @@ int e_count = 0;
 #endif
 
 int32_t MSDKVideoDecoder::Decode(
-    const webrtc::EncodedImage& inputImage, bool missingFrames,
+    const webrtc::EncodedImage& inputImage,
+    bool missingFrames,
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     int64_t renderTimeMs) {
   // The decoding process involves following steps:
@@ -242,9 +256,8 @@ int32_t MSDKVideoDecoder::Decode(
   mfxStatus sts = MFX_ERR_NONE;
   HRESULT hr;
   bool device_opened = false;
-  mfxFrameSurface1 *pOutputSurface = nullptr;
-  m_mfxVideoParams.IOPattern =
-      MFX_IOPATTERN_OUT_VIDEO_MEMORY;
+  mfxFrameSurface1* pOutputSurface = nullptr;
+  m_mfxVideoParams.IOPattern = MFX_IOPATTERN_OUT_VIDEO_MEMORY;
   m_mfxVideoParams.AsyncDepth = 1;
   ReadFromInputStream(&m_mfxBS, inputImage._buffer, inputImage._length);
 
@@ -327,7 +340,7 @@ dec_header:
   // If we get video param changed, that means we need to continue with
   // decoding.
   while (true) {
-more_surface:
+  more_surface:
     mfxU16 moreIdx =
         DecGetFreeSurface(m_pInputSurfaces, m_mfxResponse.NumFrameActual);
     if (moreIdx == MSDK_INVALID_SURF_IDX) {
@@ -336,7 +349,7 @@ more_surface:
     }
     mfxFrameSurface1* moreFreeSurf = &m_pInputSurfaces[moreIdx];
 
-retry:
+  retry:
     m_decBsOffset = m_mfxBS.DataOffset;
     sts = m_pmfxDEC->DecodeFrameAsync(&m_mfxBS, moreFreeSurf, &pOutputSurface,
                                       &syncp);
@@ -350,7 +363,8 @@ retry:
         if (!device_opened) {
           hr = d3d_manager->OpenDeviceHandle(&hHandle);
           if (FAILED(hr)) {
-            RTC_LOG(LS_ERROR) << "Failed to open d3d device handle. Not rendering.";
+            RTC_LOG(LS_ERROR)
+                << "Failed to open d3d device handle. Not rendering.";
             return WEBRTC_VIDEO_CODEC_ERROR;
           }
         }
@@ -378,6 +392,15 @@ retry:
                                            webrtc::kVideoRotation_0);
           decoded_frame.set_ntp_time_ms(inputImage.ntp_time_ms_);
           decoded_frame.set_timestamp(inputImage.Timestamp());
+          // Logging requested.
+          if (decoder_latency_ != nullptr) {
+            int32_t frame_ts = inputImage.Timestamp();
+            int64_t start_recv = inputImage.timing_.receive_start_ms;
+            int64_t end_recv = inputImage.timing_.receive_finish_ms;
+            int64_t now_ms = Clock::GetRealTimeClock()->TimeInMilliseconds();
+            fprintf(decoder_latency_, "%d\t%lld\t%lld\t%lld\r\n", frame_ts, start_recv,
+                    end_recv, now_ms);
+          }
           callback_->Decoded(decoded_frame);
         }
 
@@ -402,13 +425,15 @@ retry:
       m_mfxBS.DataOffset = m_decBsOffset;
       m_video_param_extracted = false;
       goto dec_header;
-	}
+    }
   }
   return WEBRTC_VIDEO_CODEC_OK;
 }
-mfxStatus MSDKVideoDecoder::ExtendMfxBitstream(mfxBitstream* pBitstream, mfxU32 nSize) {
+mfxStatus MSDKVideoDecoder::ExtendMfxBitstream(mfxBitstream* pBitstream,
+                                               mfxU32 nSize) {
   mfxU8* pData = new mfxU8[nSize];
-  memmove(pData, pBitstream->Data + pBitstream->DataOffset, pBitstream->DataLength);
+  memmove(pData, pBitstream->Data + pBitstream->DataOffset,
+          pBitstream->DataLength);
 
   WipeMfxBitstream(pBitstream);
 
@@ -419,11 +444,15 @@ mfxStatus MSDKVideoDecoder::ExtendMfxBitstream(mfxBitstream* pBitstream, mfxU32 
   return MFX_ERR_NONE;
 }
 
-void MSDKVideoDecoder::ReadFromInputStream(mfxBitstream* pBitstream, uint8_t *data, size_t len) {
-  if (m_mfxBS.MaxLength < len){
-      // Remaining BS size is not enough to hold current image, we enlarge it the gap*2.
-      mfxU32 newSize = static_cast<mfxU32>(m_mfxBS.MaxLength > len ? m_mfxBS.MaxLength * 2 : len * 2);
-      ExtendMfxBitstream(&m_mfxBS, newSize);
+void MSDKVideoDecoder::ReadFromInputStream(mfxBitstream* pBitstream,
+                                           uint8_t* data,
+                                           size_t len) {
+  if (m_mfxBS.MaxLength < len) {
+    // Remaining BS size is not enough to hold current image, we enlarge it the
+    // gap*2.
+    mfxU32 newSize = static_cast<mfxU32>(
+        m_mfxBS.MaxLength > len ? m_mfxBS.MaxLength * 2 : len * 2);
+    ExtendMfxBitstream(&m_mfxBS, newSize);
   }
   memmove(m_mfxBS.Data + m_mfxBS.DataLength, data, len);
   m_mfxBS.DataLength += static_cast<mfxU32>(len);
@@ -436,8 +465,9 @@ void MSDKVideoDecoder::WipeMfxBitstream(mfxBitstream* pBitstream) {
   MSDK_SAFE_DELETE_ARRAY(pBitstream->Data);
 }
 
-mfxU16 MSDKVideoDecoder::DecGetFreeSurface(mfxFrameSurface1* pSurfacesPool, mfxU16 nPoolSize) {
-  mfxU32 SleepInterval = 10; // milliseconds
+mfxU16 MSDKVideoDecoder::DecGetFreeSurface(mfxFrameSurface1* pSurfacesPool,
+                                           mfxU16 nPoolSize) {
+  mfxU32 SleepInterval = 10;  // milliseconds
   mfxU16 idx = MSDK_INVALID_SURF_IDX;
 
   // Wait if there's no free surface
@@ -453,28 +483,30 @@ mfxU16 MSDKVideoDecoder::DecGetFreeSurface(mfxFrameSurface1* pSurfacesPool, mfxU
   return idx;
 }
 
-mfxU16 MSDKVideoDecoder::DecGetFreeSurfaceIndex(mfxFrameSurface1* pSurfacesPool, mfxU16 nPoolSize) {
+mfxU16 MSDKVideoDecoder::DecGetFreeSurfaceIndex(mfxFrameSurface1* pSurfacesPool,
+                                                mfxU16 nPoolSize) {
   if (pSurfacesPool) {
     for (mfxU16 i = 0; i < nPoolSize; i++) {
       if (0 == pSurfacesPool[i].Data.Locked) {
-          return i;
+        return i;
       }
     }
   }
   return MSDK_INVALID_SURF_IDX;
 }
 
-int32_t MSDKVideoDecoder::RegisterDecodeCompleteCallback(webrtc::DecodedImageCallback* callback) {
+int32_t MSDKVideoDecoder::RegisterDecodeCompleteCallback(
+    webrtc::DecodedImageCallback* callback) {
   callback_ = callback;
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
 void MSDKVideoDecoder::OnMessage(rtc::Message* msg) {
-  switch (msg->message_id){
-  case MSDK_MSG_HANDLE_INPUT:
+  switch (msg->message_id) {
+    case MSDK_MSG_HANDLE_INPUT:
       // Maybe doing something later to improve the output queue.
       break;
-  default:
+    default:
       break;
   }
 }

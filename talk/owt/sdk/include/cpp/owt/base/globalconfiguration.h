@@ -64,6 +64,13 @@ class GlobalConfiguration {
   static void SetLowLatencyStreamingEnabled(bool enabled) {
     low_latency_streaming_enabled_ = enabled;
   }
+  /**
+   @brief This function enables logging of latency to file
+   @param enabled Enable logging of latency to file.
+  */
+  static void SetLatencyLoggingEnabled(bool enabled) {
+    log_latency_to_file_enabled_ = enabled;
+  }
   /** @cond */
   /**
    @brief This function sets the capturing frame type to be encoded video frame.
@@ -163,6 +170,11 @@ class GlobalConfiguration {
     return low_latency_streaming_enabled_;
   }
   static bool low_latency_streaming_enabled_;
+
+  static bool GetLatencyLoggingEnabled() {
+    return log_latency_to_file_enabled_;
+  }
+  static bool log_latency_to_file_enabled_;
   /**
    @brief This function gets whether encoded video frame input is enabled or
    not.

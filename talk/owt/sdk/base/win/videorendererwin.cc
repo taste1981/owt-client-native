@@ -59,6 +59,9 @@ void WebrtcVideoRendererD3D9Impl::OnFrame(
     const webrtc::VideoFrame& video_frame) {
   // Do we need to Lock the renderframe call? since we have the device lock here
   // it seems no neccessary.
+  uint64_t now_ms = Clock::GetRealTimeClock()->TimeInMilliseconds();
+  uint32_t in_ts = video_frame.timestamp();
+
   if (video_frame.video_frame_buffer()->type() ==
       webrtc::VideoFrameBuffer::Type::kNative) {  // We're handling DXVA buffer
     NativeD3DSurfaceHandle* nativeHandle =
@@ -98,8 +101,10 @@ void WebrtcVideoRendererD3D9Impl::OnFrame(
         return;
       }
     }
-
+    uint64_t end_ms = Clock::GetRealTimeClock()->TimeInMilliseconds();
     hr = pDevice->Present(nullptr, nullptr, wnd_, nullptr);
+    if (render_latency_ != nullptr)
+      fprintf(render_latency_, "%d\t%lld\t%lld\r\n", in_ts, now_ms, end_ms);
 
     if (hr == D3DERR_DEVICELOST) {
       RTC_LOG(LS_WARNING) << "Device lost for present.";
