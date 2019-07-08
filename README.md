@@ -16,14 +16,10 @@ You need [Doxygen](http://www.doxygen.nl/) in your path.
 
 ### Prepare the development environment
 Before you start, make sure you have following prerequisites installed/built:
-
 - [WebRTC stack build dependencies](https://webrtc.org/native-code/development/prerequisite-sw/).
-- [OpenSSL 1.1.0](https://www.openssl.org/source/).
 
 Following dependencies are for Windows only:
-
-- [Boost 1.67.0 or higher](https://www.boost.org/users/download/).
-- [Intel Media SDK for Windows, version 2018 R1 or higher](https://software.intel.com/en-us/media-sdk/choose-download/client).
+- [Intel Media SDK 2018 R2 or higher](https://software.intel.com/en-us/media-sdk/choose-download/client).
 
 ### Get the code
 - Make sure you clone the source code to `src` dir.
@@ -34,7 +30,7 @@ solutions = [
   {  
      "managed": False,  
      "name": "src",  
-     "url": "https://github.com/open-webrtc-toolkit/owt-client-native.git",  
+     "url": "https://github.com/taste1981/oms-client-native.git",  
      "custom_deps": {},  
      "deps_file": "DEPS",  
      "safesync_url": "",  
@@ -45,17 +41,29 @@ target_os = []
 
 ### Build
 #### Windows
-- Set environmental variable ````BOOST_ROOT```` to your boost source tree.
 - Run `gclient sync`. It may take a long time to download large amount of data.
-- Go to src/srcitps/ directory, and run: `python build-win.py --gn_gen --sdk --tests --ssl_root /path/to/ssl --msdk_root /path/to/msdk --output_path /path/to/out`. The built binary will be under `output_path`, the documents for sdk will also be copied to this directory if docs has been generated. If not set `output_path`, the built binary will be under src/out directory. Be noted the first time you run this would take a long time to pull chromium/webrtc dependencies and require a network accessible to Google's code/storage infrastructure. `ssl_root` to the directory of your OpenSSL 1.1.0 binary. `msdk_root` to the directory of your Intel Media SDK for Windows, version 2018 R1 or higher. `gn_gen` to generate args.gn, you need to add `--gn_gen` at the first time build or when you changed `msdk_root` and `ssl_root` path.
-#### iOS
-- Run `gclient sync`. It may take a long time to download large amount of data.
-- Build OWT iOS SDK with `scripts\build.py`.
+- To build the stack for client, go to 'src' directory, and run `gn args out/release-x64' for release build. On the prompted config setting, set: 
+````
+rtc_use_h264 = true
+rtc_use_h265 = true
+is_component_build = false
+use_lld = false
+rtc_include_tests = false
+woogeen_include_tests = false
+rtc_build_examples = false
+target_cpu = "x64"
+is_debug = false
+````
 
-#### Android
-- Replace the last line of `.gclient` with `target_os=["android"]`
-- Run `gclient sync`. It may take a long time to download large amount of data.
-- Build libwebrtc for OWT Android SDK with `scripts/build_android.py`.
+- If you're building the stack for the client, besides the gn args listed above, you also need to add below gn args, and prior to build, make sure Media SDK 2018 R2 or higher is
+alredy installed on your build system:
+````
+ffmpeg_branding = "Chrome"
+woogeen_msdk_header_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\\include"
+woogeen_msdk_lib_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\\lib\\x64"
+````
+- Run `ninja -C out/release-x64` to finish the build. Output owt.lib will be under out/release/owt/talk/owt.lib; rename it to owt-release.lib for copying to cloud-gaming dependency directories.
+- Copy the header files under src/talk/owt/sdk/include/cpp/ to the cloud-gaming include directories.
 
 ## How to contribute
 We warmly welcome community contributions to owt-client-native repository. If you are willing to contribute your features and ideas to OWT, follow the process below:
