@@ -59,10 +59,10 @@ is_debug = false
 alredy installed on your build system:
 ````
 ffmpeg_branding = "Chrome"
-woogeen_msdk_header_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\\include"
-woogeen_msdk_lib_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\\lib\\x64"
+woogeen_msdk_header_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\include"
+woogeen_msdk_lib_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\lib\x64"
 ````
-- Run `ninja -C out/release-x64` to finish the build. Output owt.lib will be under out/release/owt/talk/owt.lib; rename it to owt-release.lib for copying to cloud-gaming dependency directories.
+- Run `ninja -C out/release-x64` to finish the build. Output owt.lib will be under out/release/obj/owt/talk/owt.lib; rename it to owt-release.lib for copying to cloud-gaming dependency directories.
 - Copy the header files under src/talk/owt/sdk/include/cpp/ to the cloud-gaming include directories.
 
 ## How to contribute
