@@ -22,7 +22,7 @@ Following dependencies are for Windows only:
 - [Intel Media SDK 2018 R2 or higher](https://software.intel.com/en-us/media-sdk/choose-download/client).
 
 ### Get the code
-- Make sure you clone the source code to `src` dir. that is `git checkout https://github.com/taste1981/oms-client-native -b latency_measure src`
+- Make sure you clone the source code to `src` dir. that is `git clone -b latency_measure https://github.com/taste1981/oms-client-native src`
 - Create file named .gclient in the same directory as `src` dir, with below contents:
 
 ````
