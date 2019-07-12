@@ -22,10 +22,10 @@ Following dependencies are for Windows only:
 - [Intel Media SDK 2018 R2 or higher](https://software.intel.com/en-us/media-sdk/choose-download/client).
 
 ### Get the code
-- Make sure you clone the source code to `src` dir.
-- Create file named .gclient under the same directory of `src` dir, with below contents:
+- Make sure you clone the source code to `src` dir. that is `git checkout https://github.com/taste1981/oms-client-native -b latency_measure src`
+- Create file named .gclient in the same directory as `src` dir, with below contents:
 
-```
+````
 solutions = [ 
   {  
      "managed": False,  
@@ -37,7 +37,12 @@ solutions = [
   },  
 ]  
 target_os = []  
-```
+````
+After that, the source tree looks like
+````
+--|--.gclient
+  |--src
+````
 
 ### Build
 #### Windows
@@ -62,7 +67,7 @@ ffmpeg_branding = "Chrome"
 woogeen_msdk_header_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\include"
 woogeen_msdk_lib_root = "c:\Program Files (x86)\IntelSWTools\Intel(R) Media SDK 2018 R2\Software Development Kit\lib\x64"
 ````
-- Run `ninja -C out/release-x64` to finish the build. Output owt.lib will be under out/release/obj/owt/talk/owt.lib; rename it to owt-release.lib for copying to cloud-gaming dependency directories.
+- Run `ninja -C out/release-x64` to finish the build. Output owt.lib will be under out/release-x64/obj/owt/talk/owt.lib; rename it to owt-release.lib for copying to cloud-gaming dependency directories.
 - Copy the header files under src/talk/owt/sdk/include/cpp/ to the cloud-gaming include directories.
 
 ## How to contribute
