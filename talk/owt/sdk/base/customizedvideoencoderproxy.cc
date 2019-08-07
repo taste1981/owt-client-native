@@ -135,10 +135,11 @@ int CustomizedVideoEncoderProxy::Encode(
 #else
   uint16_t picture_id_from_external_encoder = 0;
   uint64_t capture_timestamp = 0;
+  bool last_fragment = false;
   if (external_encoder_) {
-    if (!external_encoder_->EncodeOneFrame(buffer, request_key_frame,
-                                           capture_timestamp,
-                                           picture_id_from_external_encoder))
+    if (!external_encoder_->EncodeOneFrame(
+            buffer, request_key_frame, capture_timestamp,
+            picture_id_from_external_encoder, last_fragment))
       return WEBRTC_VIDEO_CODEC_ERROR;
   }
   std::unique_ptr<uint8_t[]> data(new uint8_t[buffer.size()]);
@@ -154,6 +155,22 @@ int CustomizedVideoEncoderProxy::Encode(
   encodedframe._timeStamp = input_image.timestamp();
   encodedframe.playout_delay_.min_ms = 0;
   encodedframe.playout_delay_.max_ms = 0;
+
+
+  if (!update_ts_) {
+    encodedframe.capture_time_ms_ = last_capture_timestamp_;
+    encodedframe._timeStamp = last_timestamp_;
+  } else {
+    last_capture_timestamp_ = encodedframe.capture_time_ms_;
+    last_timestamp_ = encodedframe._timeStamp;
+  }
+
+  if (last_fragment)
+    update_ts_ = true;
+  else
+    update_ts_ = false;
+
+
   // VP9 requires setting the frame type according to actual frame type.
   if (codec_type_ == webrtc::kVideoCodecVP9 && data_size > 2) {
     uint8_t au_key = 1;
@@ -201,6 +218,7 @@ int CustomizedVideoEncoderProxy::Encode(
     info.codecSpecific.VP9.temporal_idx = kNoTemporalIdx;
   } else if (codec_type_ == webrtc::kVideoCodecH264 && external_encoder_) {
     info.codecSpecific.H264.picture_id = picture_id_from_external_encoder;
+    info.codecSpecific.H264.last_fragment_in_frame = last_fragment;
   }
   // Generate a header describing a single fragment.
   webrtc::RTPFragmentationHeader header;

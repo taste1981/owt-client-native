@@ -43,10 +43,11 @@ class VideoEncoderInterface {
    @param key_frame Indicates whether we're requesting an AU representing an key frame.
    @param capture_timestamp Timestamp for when the frame is captured.
    @param picture_id Picture ID of encoded frame.
+   @param last_fragment Indicate if current data is the end of a frame which might be sent slice-by-slice
    @return Returns true if the encoder successfully returns one frame; returns false
    if the encoder fails to encode one frame.
    */
-  virtual bool EncodeOneFrame(std::vector<uint8_t>& buffer, bool key_frame, uint64_t& capture_timestamp, uint16_t& picture_id) = 0;
+  virtual bool EncodeOneFrame(std::vector<uint8_t>& buffer, bool key_frame, uint64_t& capture_timestamp, uint16_t& picture_id, bool& last_fragment) = 0;
 #endif
   /**
    @brief Release the resources that current encoder holds.
