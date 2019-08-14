@@ -57,6 +57,12 @@ rtc_build_examples = false
 target_cpu = "x64"
 is_debug = false
 ````
+- If you wish to use the Intel GPRA BWE library, you need to add three additional variables, shown below. The lib root should be the directory that contains `gpra_lib.lib`, and the header root should be directory that contains `grpa_bwe.h`. Using the // syntax, the path is relative to your `src` directory. You can also use absolute paths.
+```
+owt_gpra_lib_root = "//path/to/libs/x64"
+owt_gpra_header_root = "//path/to/include"
+owt_use_gpra = true
+```
 - Run `ninja -C out/release-x64` to finish the build. Output owt.lib will be under out/release-x64/obj/owt/talk/owt.lib; rename it to owt-release.lib for copying to cloud-gaming dependency directories.
 - Copy the header files under src/talk/owt/sdk/include/cpp/ to the cloud-gaming include directories.
 
