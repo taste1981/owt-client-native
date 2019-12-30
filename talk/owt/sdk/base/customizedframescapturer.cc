@@ -1,6 +1,7 @@
 // Copyright (C) <2018> Intel Corporation
 //
 // SPDX-License-Identifier: Apache-2.0
+#include <algorithm>
 #include "webrtc/rtc_base/criticalsection.h"
 #include "webrtc/rtc_base/logging.h"
 #include "webrtc/rtc_base/memory/aligned_malloc.h"
@@ -76,11 +77,13 @@ CustomizedFramesCapturer::CustomizedFramesCapturer(
       frame_type_(frame_generator_->GetType()),
       frame_buffer_capacity_(0),
       frame_buffer_(nullptr),
-      async_invoker_(nullptr) {}
+      async_invoker_(nullptr) {
+  encoded_stream_provider_wrapper_ = nullptr;
+  encoder_event_callback_ = nullptr;
+}
 CustomizedFramesCapturer::CustomizedFramesCapturer(
-    int width, int height, int fps, int bitrate_kbps, VideoEncoderInterface* encoder)
+    int width, int height, int fps, int bitrate_kbps, std::shared_ptr<EncodedStreamProvider> encoder)
     : frame_generator_(nullptr),
-      encoder_(encoder),
       frames_generator_thread(nullptr),
       width_(width),
       height_(height),
@@ -88,7 +91,15 @@ CustomizedFramesCapturer::CustomizedFramesCapturer(
       bitrate_kbps_(bitrate_kbps),
       frame_buffer_capacity_(0),
       frame_buffer_(nullptr),
-      async_invoker_(nullptr) {}
+      async_invoker_(nullptr) {
+  if (encoder.get()) {
+    encoded_stream_provider_wrapper_.reset(
+        new EncodedStreamProviderWrapper(encoder));
+  } else {
+    encoded_stream_provider_wrapper_ = nullptr;
+  }
+  encoder_event_callback_ = nullptr;
+}
 CustomizedFramesCapturer::~CustomizedFramesCapturer() {
   Stop();
   frame_generator_.reset(nullptr);
@@ -96,6 +107,10 @@ CustomizedFramesCapturer::~CustomizedFramesCapturer() {
   // application. mark it to nullptr to avoid ReadFrame
   // passing native buffer to stack.
   encoder_ = nullptr;
+  if (encoder_event_callback_ != nullptr) {
+    delete encoder_event_callback_;
+    encoder_event_callback_ = nullptr;
+  }
 }
 void CustomizedFramesCapturer::Init() {
   // Only I420 frame is supported. Encoded frame is not supported here.
@@ -107,41 +122,101 @@ void CustomizedFramesCapturer::Init() {
 }
 cricket::CaptureState CustomizedFramesCapturer::Start(
     const cricket::VideoFormat& capture_format) {
-  if (IsRunning()) {
-    RTC_LOG(LS_ERROR) << "Yuv Frame Generator is already running";
-    return CS_FAILED;
+  if (frame_generator_.get()) {
+    if (IsRunning()) {
+      RTC_LOG(LS_ERROR) << "Yuv Frame Generator is already running";
+      return CS_FAILED;
+    }
   }
+
   SetCaptureFormat(&capture_format);
-  worker_thread_ = rtc::Thread::Current();
-  RTC_DCHECK(!async_invoker_);
-  async_invoker_.reset(new rtc::AsyncInvoker());
-  // Create a thread to generate frames.
-  frames_generator_thread = new CustomizedFramesThread(this, fps_);
-  bool ret = frames_generator_thread->Start();
-  if (ret) {
-    RTC_LOG(LS_INFO) << "Yuv Frame Generator started";
-    return CS_RUNNING;
-  } else {
-    async_invoker_.reset();
-    worker_thread_ = nullptr;
-    RTC_LOG(LS_ERROR) << "Yuv Frame Generator failed to start";
-    return CS_FAILED;
+  if (frame_generator_.get()) {
+    worker_thread_ = rtc::Thread::Current();
+    RTC_DCHECK(!async_invoker_);
+    async_invoker_.reset(new rtc::AsyncInvoker());
+    // Create a thread to generate frames.
+    frames_generator_thread = new CustomizedFramesThread(this, fps_);
+    bool ret = frames_generator_thread->Start();
+    if (ret) {
+      RTC_LOG(LS_INFO) << "Yuv Frame Generator started";
+    } else {
+      async_invoker_.reset();
+      worker_thread_ = nullptr;
+      RTC_LOG(LS_ERROR) << "Yuv Frame Generator failed to start";
+      return CS_FAILED;
+    }
   }
+
+  if (encoded_stream_provider_wrapper_ != nullptr) {
+    encoded_stream_provider_wrapper_->AddSink(this);
+    if (encoder_event_callback_ == nullptr)
+      encoder_event_callback_ =
+          new EncoderEventCallbackWrapper(encoded_stream_provider_wrapper_);
+    encoder_event_callback_->StartStreaming();
+  }
+
+  return CS_RUNNING;
 }
+
 bool CustomizedFramesCapturer::IsRunning() {
-  return frames_generator_thread && !frames_generator_thread->Finished();
+  return true;
+  //return frames_generator_thread && !frames_generator_thread->Finished();
 }
 void CustomizedFramesCapturer::Stop() {
-  if (frames_generator_thread) {
-    frames_generator_thread->Quit();
-    delete frames_generator_thread;
-    frames_generator_thread = nullptr;
-    RTC_LOG(LS_INFO) << "Yuv Frame Generator stopped";
+  if (frame_generator_.get()) {
+    if (frames_generator_thread) {
+      frames_generator_thread->Quit();
+      delete frames_generator_thread;
+      frames_generator_thread = nullptr;
+      RTC_LOG(LS_INFO) << "Yuv Frame Generator stopped";
+    }
+    worker_thread_ = nullptr;
+    async_invoker_.reset();
   }
+
   SetCaptureFormat(nullptr);
-  worker_thread_ = nullptr;
-  async_invoker_.reset();
+
+  if (encoded_stream_provider_wrapper_ != nullptr) {
+    encoded_stream_provider_wrapper_->RemoveSink();
+  }
+
+  if (encoder_event_callback_ != nullptr) {
+    encoder_event_callback_->StopStreaming();
+  }
 }
+
+void CustomizedFramesCapturer::OnStreamProviderFrame(
+    const std::vector<uint8_t>& buffer,
+    const EncodedImageMetaData& meta_data) {
+  if (buffer.size() == 0)
+    return;
+
+  CustomizedEncoderBufferHandle2* encoder_context =
+      new CustomizedEncoderBufferHandle2;
+  encoder_context->encoder_event_callback_ = encoder_event_callback_;
+  encoder_context->width_ = width_;
+  encoder_context->height_ = height_;
+  encoder_context->fps_ = fps_;
+  encoder_context->bitrate_kbps_ = bitrate_kbps_;
+  encoder_context->meta_data_.capture_timestamp = meta_data.capture_timestamp;
+  encoder_context->meta_data_.encoding_end = meta_data.encoding_end;
+  encoder_context->meta_data_.encoding_start = meta_data.encoding_start;
+  encoder_context->meta_data_.last_fragment = meta_data.last_fragment;
+  encoder_context->meta_data_.picture_id = meta_data.picture_id;
+
+  uint8_t* frame_buffer = new uint8_t[buffer.size()];
+  std::copy(buffer.begin(), buffer.end(), frame_buffer);
+
+  encoder_context->buffer_ = frame_buffer;
+  encoder_context->buffer_length_ = buffer.size();
+
+  rtc::scoped_refptr<owt::base::EncodedFrameBuffer2> rtc_buffer =
+      new rtc::RefCountedObject<owt::base::EncodedFrameBuffer2>(encoder_context);
+  webrtc::VideoFrame pending_frame(rtc_buffer, 0, rtc::TimeMillis(),
+                                   webrtc::kVideoRotation_0);
+  OnFrame(pending_frame, width_, height_);
+}
+
 bool CustomizedFramesCapturer::GetPreferredFourccs(
     std::vector<uint32_t>* fourccs) {
   if (!fourccs) {
@@ -188,18 +263,8 @@ void CustomizedFramesCapturer::ReadFrame() {
     webrtc::VideoFrame capture_frame(frame_buffer_, 0, rtc::TimeMillis(),
                                   webrtc::kVideoRotation_0);
     OnFrame(capture_frame, width_, height_);
-  } else if (encoder_ != nullptr) { // video encoder interface used. Pass the encoder information.
-    CustomizedEncoderBufferHandle* encoder_context = new CustomizedEncoderBufferHandle;
-    encoder_context->encoder = encoder_;
-    encoder_context->width = width_;
-    encoder_context->height = height_;
-    encoder_context->fps = fps_;
-    encoder_context->bitrate_kbps = bitrate_kbps_;
-    rtc::scoped_refptr<owt::base::EncodedFrameBuffer> buffer =
-        new rtc::RefCountedObject<owt::base::EncodedFrameBuffer>(encoder_context);
-    webrtc::VideoFrame pending_frame(buffer, 0, rtc::TimeMillis(),
-                                    webrtc::kVideoRotation_0);
-    OnFrame(pending_frame, width_, height_);
+  } else {
+    // For encoded input, we use push mode so it will not be delivered in capture thread.
   }
 }
 }  // namespace base
