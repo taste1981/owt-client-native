@@ -204,12 +204,12 @@ class LocalStream : public Stream {
     video encoder interface.
     @param parameters Parameters for creating the stream. The stream will not
     be impacted if changing parameters after it is created.
-    @param encoder Pointer to an instance implementing VideoEncoderInterface.
+    @param encoder Pointer to an instance of EncodedStreamProvider.
     @return Pointer to created LocalStream.
   */
   static std::shared_ptr<LocalStream> Create(
       std::shared_ptr<LocalCustomizedStreamParameters> parameters,
-      VideoEncoderInterface* encoder);
+      std::shared_ptr<EncodedStreamProvider> encoder);
 #if defined(WEBRTC_WIN)
   /**
     @brief Initialize a local screen stream with parameters.
@@ -234,7 +234,7 @@ class LocalStream : public Stream {
          std::unique_ptr<VideoFrameGeneratorInterface> framer);
      explicit LocalStream(
          std::shared_ptr<LocalCustomizedStreamParameters> parameters,
-         VideoEncoderInterface* encoder);
+         std::shared_ptr<EncodedStreamProvider> encoder);
 #if defined(WEBRTC_WIN)
      explicit LocalStream(
          std::shared_ptr<LocalDesktopStreamParameters> parameters,

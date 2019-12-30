@@ -34,7 +34,7 @@ class CustomizedVideoEncoderProxy : public webrtc::VideoEncoder {
   // int count_;
   webrtc::VideoCodecType codec_type_;
   uint16_t picture_id_;
-  VideoEncoderInterface* external_encoder_;
+  EncoderEventCallback* encoder_event_callback_ = nullptr;
   uint32_t last_timestamp_;
   uint64_t last_capture_timestamp_;
   bool update_ts_ = true;
