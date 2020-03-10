@@ -187,8 +187,8 @@ void WebrtcVideoRendererD3D9Impl::OnFrame(
       m_d3d_device_->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
       m_d3d_device_->EndScene();
 
-      uint64_t end_ms = Clock::GetRealTimeClock()->TimeInMilliseconds();
 #ifdef INTEL_TELEMETRY
+      uint64_t end_ms = Clock::GetRealTimeClock()->TimeInMilliseconds();
       if (last_render_invoke_ms_ != 0) {
         uint64_t decode_gap = end_ms - last_render_invoke_ms_;
         rtc::Telemetry::RecordSample(gauges::kWebRTCRenderGapMeasure,

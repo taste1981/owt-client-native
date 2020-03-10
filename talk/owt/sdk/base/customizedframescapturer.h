@@ -44,7 +44,7 @@ class CustomizedFramesCapturer : public VideoCapturer, public EncodedStreamProvi
 
   // EncodedStreamProviderSink implementation
   virtual void OnStreamProviderFrame(const std::vector<uint8_t>& buffer,
-                                     const EncodedImageMetaData& meta_data);
+                                     const EncodedImageMetaData& meta_data) override;
  protected:
   // Override virtual methods of parent class VideoCapturer.
   virtual bool GetPreferredFourccs(std::vector<uint32_t>* fourccs) override;
