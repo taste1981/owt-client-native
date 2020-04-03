@@ -8,6 +8,8 @@
 #include "webrtc/common_audio/signal_processing/include/signal_processing_library.h"
 #include "webrtc/modules/audio_device/audio_device_config.h"
 #include "webrtc/modules/audio_device/audio_device_impl.h"
+#include "webrtc/modules/audio_device/include/fake_audio_device.h"
+
 #define CHECK_INITIALIZED() \
   {                         \
     if (!_initialized) {    \
@@ -576,9 +578,8 @@ int CustomizedAudioDeviceModule::GetRecordAudioParameters(
 }
 #endif  // WEBRTC_IOS
 void CustomizedAudioDeviceModule::CreateOutputAdm(){
-  if(_outputAdm==nullptr){
-    _outputAdm = webrtc::AudioDeviceModuleImpl::Create(
-        0, AudioDeviceModule::kPlatformDefaultAudio);
+  if (_outputAdm == nullptr) {
+    _outputAdm = new rtc::RefCountedObject<webrtc::FakeAudioDeviceModule>();
   }
 }
 }
