@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #ifndef OWT_BASE_CUSTOMIZEDAUDIODEVICEMODULE_H_
 #define OWT_BASE_CUSTOMIZEDAUDIODEVICEMODULE_H_
-#if defined(WEBRTC_INCLUDE_INTERNAL_AUDIO_DEVICE)
+
 #include <memory>
 #include "webrtc/rtc_base/criticalsection.h"
 #include "webrtc/modules/audio_device/include/audio_device.h"
@@ -126,5 +126,4 @@ class CustomizedAudioDeviceModule : public webrtc::AudioDeviceModule {
 };
 }
 }
-#endif  // defined(WEBRTC_INCLUDE_INTERNAL_AUDIO_DEVICE)
 #endif  // OWT_BASE_CUSTOMIZEDAUDIODEVICEMODULE_H_

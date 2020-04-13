@@ -43,6 +43,7 @@ GN_ARGS = [
 def gngen(arch, ssl_root, msdk_root, scheme):
     gn_args = list(GN_ARGS)
     gn_args.append('target_cpu="%s"' % arch)
+    gn_args.append('include_internal_audio_device = false')
     if scheme == 'release':
         gn_args.append('is_debug=false')
     else:
