@@ -12,7 +12,6 @@ if (is_ios) {
   import("//build/config/ios/rules.gni")
 }
 declare_args() {
-  include_internal_audio_device = true
   owt_msdk_lib_root = ""
   owt_msdk_header_root = ""
 }
@@ -38,8 +37,8 @@ if (is_android) {
 }
 static_library("owt_deps") {
   deps = [
-    "//third_party/webrtc/rtc_base:rtc_json",
     "//third_party/webrtc/api:create_peerconnection_factory",
+    "//third_party/webrtc/rtc_base:rtc_json",
   ]
 
   if (is_android) {
@@ -59,20 +58,19 @@ if (!is_ios) {
     ]
 
     if (rtc_enable_protobuf) {
-      deps += [
-        "//third_party/protobuf:protobuf_lite",
-      ]
+      deps += [ "//third_party/protobuf:protobuf_lite" ]
     }
     complete_static_lib = true
   }
 }
 static_library("owt_sdk_base") {
   sources = [
-    "sdk/base/clock.cc",
     "sdk/base/cameravideocapturer.cc",
     "sdk/base/cameravideocapturer.h",
+    "sdk/base/clock.cc",
     "sdk/base/codecutils.cc",
     "sdk/base/codecutils.h",
+    "sdk/base/cursorutils.cc",
     "sdk/base/deviceutils.cc",
     "sdk/base/encodedstreamproviderwrapper.cc",
     "sdk/base/encodedstreamproviderwrapper.h",
@@ -100,7 +98,6 @@ static_library("owt_sdk_base") {
     "sdk/base/stringutils.h",
     "sdk/base/sysinfo.cc",
     "sdk/base/sysinfo.h",
-    "sdk/base/cursorutils.cc",
     "sdk/base/vcmcapturer.cc",
     "sdk/base/vcmcapturer.h",
     "sdk/base/webrtcaudiorendererimpl.cc",
@@ -130,12 +127,13 @@ static_library("owt_sdk_base") {
     ]
   }
   public_deps = [
+    "//third_party/ffmpeg:ffmpeg",
     "//third_party/libyuv:libyuv",
-    "//third_party/webrtc/api:libjingle_peerconnection_api",
     "//third_party/webrtc/api:create_peerconnection_factory",
-    "//third_party/webrtc/api/task_queue:default_task_queue_factory",
+    "//third_party/webrtc/api:libjingle_peerconnection_api",
     "//third_party/webrtc/api/audio_codecs:builtin_audio_decoder_factory",
     "//third_party/webrtc/api/audio_codecs:builtin_audio_encoder_factory",
+    "//third_party/webrtc/api/task_queue:default_task_queue_factory",
     "//third_party/webrtc/api/video:video_frame",
     "//third_party/webrtc/api/video_codecs:builtin_video_decoder_factory",
     "//third_party/webrtc/api/video_codecs:builtin_video_encoder_factory",
@@ -150,11 +148,8 @@ static_library("owt_sdk_base") {
     "//third_party/webrtc/system_wrappers:field_trial",
     "//third_party/webrtc/system_wrappers:metrics",
     "//third_party/webrtc/system_wrappers:system_wrappers",
-    "//third_party/ffmpeg:ffmpeg",
   ]
-  deps = [
-    "//base:logging_buildflags",
-  ]
+  deps = [ "//base:logging_buildflags" ]
   include_dirs = [
     "sdk/include/cpp",
     "//third_party",
@@ -164,7 +159,10 @@ static_library("owt_sdk_base") {
     include_dirs += [ owt_msdk_header_root ]
   }
 
-  defines = [ "WEBRTC_INCLUDE_INTERNAL_AUDIO_DEVICE" ]
+  defines = []
+  if (owt_include_internal_audio_device) {
+    defines += [ "WEBRTC_INCLUDE_INTERNAL_AUDIO_DEVICE" ]
+  }
   defines += [ "USE_BUILTIN_SW_CODECS" ]
   if (!rtc_use_h265) {
     defines += [ "DISABLE_H265" ]
@@ -195,31 +193,31 @@ static_library("owt_sdk_base") {
       "sdk/base/windowcapturer.h",
     ]
   }
-  
-    if (owt_msdk_header_root != "") {
+
+  if (owt_msdk_header_root != "") {
     sources += [
-      "sdk/base/win/msdkvideodecoder.cc",
-      "sdk/base/win/msdkvideodecoder.h",
-      "sdk/base/win/msdkvideoencoder.cc",
-      "sdk/base/win/msdkvideoencoder.h",
-      "sdk/base/win/msdkvideodecoderfactory.cc",
-      "sdk/base/win/msdkvideodecoderfactory.h",
-      "sdk/base/win/msdkvideoencoderfactory.cc",
-      "sdk/base/win/msdkvideoencoderfactory.h",
       "sdk/base/win/base_allocator.cc",
       "sdk/base/win/base_allocator.h",
-      "sdk/base/win/d3d_allocator.cc",
-      "sdk/base/win/d3d_allocator.h",
       "sdk/base/win/d3d11_allocator.cc",
       "sdk/base/win/d3d11_allocator.h",
-      "sdk/base/win/sysmem_allocator.h",
-      "sdk/base/win/sysmem_allocator.cc",
-      "sdk/base/win/msdkvideobase.cc",
-      "sdk/base/win/msdkvideobase.h",
-      "sdk/base/win/d3d11va_h264_decoder.cc",
-      "sdk/base/win/d3d11va_h264_decoder.h",
       "sdk/base/win/d3d11device.cc",
       "sdk/base/win/d3d11device.h",
+      "sdk/base/win/d3d11va_h264_decoder.cc",
+      "sdk/base/win/d3d11va_h264_decoder.h",
+      "sdk/base/win/d3d_allocator.cc",
+      "sdk/base/win/d3d_allocator.h",
+      "sdk/base/win/msdkvideobase.cc",
+      "sdk/base/win/msdkvideobase.h",
+      "sdk/base/win/msdkvideodecoder.cc",
+      "sdk/base/win/msdkvideodecoder.h",
+      "sdk/base/win/msdkvideodecoderfactory.cc",
+      "sdk/base/win/msdkvideodecoderfactory.h",
+      "sdk/base/win/msdkvideoencoder.cc",
+      "sdk/base/win/msdkvideoencoder.h",
+      "sdk/base/win/msdkvideoencoderfactory.cc",
+      "sdk/base/win/msdkvideoencoderfactory.h",
+      "sdk/base/win/sysmem_allocator.cc",
+      "sdk/base/win/sysmem_allocator.h",
       "sdk/base/win/videorendererd3d11.cc",
       "sdk/base/win/videorendererd3d11.h",
     ]
@@ -421,9 +419,7 @@ if (owt_include_tests) {
 
     # Only the root target should depend on this.
     visibility = [ "//:default" ]
-    deps = [
-      ":owt_unittests",
-    ]
+    deps = [ ":owt_unittests" ]
   }
   test("owt_unittests") {
     testonly = true
