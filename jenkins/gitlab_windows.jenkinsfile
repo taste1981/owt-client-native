@@ -26,7 +26,7 @@ pipeline {
     post {
         success {
             echo "I succeeded!"
-            updateGitlabCommitStatus name: 'build', state: 'failed'
+            updateGitlabCommitStatus name: 'build', state: 'success'
             mail to: "$env.mailtoUser",
             subject: "Success Pipeline: ${currentBuild.fullDisplayName}",
             body: "Success with ${env.BUILD_URL}"
@@ -34,10 +34,10 @@ pipeline {
         }
         failure {
             echo "I failed :("
-            updateGitlabCommitStatus name: 'build', state: 'success'
+            updateGitlabCommitStatus name: 'build', state: 'failed'
             mail to: "$env.mailtoUser",
-            subject: "Success Pipeline: ${currentBuild.fullDisplayName}",
-            body: "Success with ${env.BUILD_URL}"
+            subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+            body: "Failed with ${env.BUILD_URL}"
 
         }
     }
