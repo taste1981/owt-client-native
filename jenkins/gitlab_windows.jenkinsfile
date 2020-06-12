@@ -1,0 +1,47 @@
+pipeline {
+    agent any
+    options {
+        gitLabConnection('owt-client-native')
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr:"5"))
+        timeout(time: 40, unit: "MINUTES")
+    }
+    triggers {
+        gitlab(triggerOnPush: true, triggerOnMergeRequest: true, branchFilterType: 'All')
+    }
+    stages {
+        stage("Build"){
+            agent{
+                node {
+                    label "windows"
+                    customWorkspace "$env.GitLabWindosWorkNode\\src"
+                }
+            }
+            steps {
+                updateGitlabCommitStatus name: 'build', state: 'running'
+                bat "$env.GitLabWindosWorkNode\\buildSdk.bat"
+            }
+        }
+    }
+    post {
+        success {
+            echo "I succeeded!"
+            updateGitlabCommitStatus name: 'build', state: 'failed'
+            mail to: "$env.mailtoUser",
+            subject: "Success Pipeline: ${currentBuild.fullDisplayName}",
+            body: "Success with ${env.BUILD_URL}"
+
+        }
+        failure {
+            echo "I failed :("
+            updateGitlabCommitStatus name: 'build', state: 'success'
+            mail to: "$env.mailtoUser",
+            subject: "Success Pipeline: ${currentBuild.fullDisplayName}",
+            body: "Success with ${env.BUILD_URL}"
+
+        }
+    }
+
+}
+
+
