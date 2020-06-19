@@ -27,19 +27,45 @@ enum class OWT_EXPORT VideoRendererType {
   kARGB,
   kD3D11Handle,
 };
-/// Video buffer and its information
+
+#if defined(WEBRTC_WIN)
+struct OWT_EXPORT D3D11Handle {
+  ID3D11Texture2D* texture;
+  ID3D11Device* d3d11_device;
+  ID3D11VideoDevice* d3d11_video_device;
+  ID3D11VideoContext* context;
+};
+struct OWT_EXPORT D3D11VAHandle {
+  ID3D11Texture2D* texture;
+  int array_index;
+  ID3D11Device* d3d11_device;
+  ID3D11VideoDevice* d3d11_video_device;
+  ID3D11VideoContext* context;
+  uint8_t side_data[OWT_ENCODED_IMAGE_SIDE_DATA_SIZE_MAX];
+  size_t side_data_size;
+};
+#endif
+
+/// Video buffer and its information.
 struct OWT_EXPORT VideoBuffer {
-  /// Video buffer. If is native, 
-   void* buffer;
-  /// Resolution for the Video buffer
+  /// TODO: It doens't look good to define `buffer` as void* and has its
+  /// ownership. Delete void* is a undefined behavior. Cast it to other types
+  /// before delete is a workaround. It's dangerous because developer may store
+  /// other types of data to `buffer`.
+  void* buffer;
+  /// Resolution for the Video buffer.
   Resolution resolution;
-  // Buffer type
+  // Buffer type.
   VideoBufferType type;
   ~VideoBuffer() {
     if (type != VideoBufferType::kD3D11Handle)
-      delete[] buffer;
+      delete[] static_cast<uint8_t*>(buffer);
     else
-      delete buffer;
+#if defined(WEBRTC_WIN)
+      delete static_cast<D3D11VAHandle*>(buffer);
+#else
+      RTC_NOTREACHED();
+#endif
   }
 };
 /// VideoRenderWindow wraps a native Window handle
@@ -90,23 +116,6 @@ class VideoRendererInterface {
   /// Render type that indicates the VideoBufferType the renderer would receive.
   virtual VideoRendererType Type() = 0;
 };
-#if defined(WEBRTC_WIN)
-struct OWT_EXPORT D3D11Handle {
-  ID3D11Texture2D* texture;
-  ID3D11Device* d3d11_device;
-  ID3D11VideoDevice* d3d11_video_device;
-  ID3D11VideoContext* context;
-};
-struct OWT_EXPORT D3D11VAHandle {
-  ID3D11Texture2D* texture;
-  int array_index;
-  ID3D11Device* d3d11_device;
-  ID3D11VideoDevice* d3d11_video_device;
-  ID3D11VideoContext* context;
-  uint8_t side_data[OWT_ENCODED_IMAGE_SIDE_DATA_SIZE_MAX];
-  size_t side_data_size;
-};
-#endif
 }  // namespace base
 }  // namespace owt
 #endif  // OWT_BASE_VIDEORENDERERINTERFACE_H_

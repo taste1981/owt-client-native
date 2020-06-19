@@ -12,8 +12,8 @@ namespace base {
 PeerConnectionChannel::PeerConnectionChannel(
     PeerConnectionChannelConfiguration configuration)
     : configuration_(configuration),
-      factory_(nullptr),
-      peer_connection_(nullptr) {}
+      peer_connection_(nullptr),
+      factory_(nullptr) {}
 PeerConnectionChannel::~PeerConnectionChannel() {
   if (peer_connection_ != nullptr) {
     peer_connection_->Close();
