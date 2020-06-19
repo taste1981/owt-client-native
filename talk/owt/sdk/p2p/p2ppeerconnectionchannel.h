@@ -258,7 +258,7 @@ class P2PPeerConnectionChannel : public P2PSignalingReceiverInterface,
   std::atomic<bool> stop_send_needed_;
   bool remote_side_offline_;
   bool block_data_send_ = false;
-  std::atomic<bool> ended_;
+  std::atomic<bool> ended_ = false;
   bool local_stop_triggered_ = false;
   mutable std::mutex api_lock_;
 };

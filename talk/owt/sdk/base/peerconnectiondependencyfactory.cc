@@ -169,10 +169,10 @@ void PeerConnectionDependencyFactory::
   }
   // If still video factory is not in place, use internal factory.
   if (!encoder_factory.get()) {
-    encoder_factory = webrtc::CreateBuiltinVideoEncoderFactory();
+    encoder_factory = std::move(webrtc::CreateBuiltinVideoEncoderFactory());
   }
   if (!decoder_factory.get()) {
-    decoder_factory = webrtc::CreateBuiltinVideoDecoderFactory();
+    decoder_factory = std::move(webrtc::CreateBuiltinVideoDecoderFactory());
   }
 #else
 #error "Unsupported platform."

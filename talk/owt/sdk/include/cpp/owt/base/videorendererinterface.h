@@ -27,26 +27,19 @@ enum class OWT_EXPORT VideoRendererType {
   kARGB,
   kD3D11Handle,
 };
-/// Video buffer and its information.
+/// Video buffer and its information
 struct OWT_EXPORT VideoBuffer {
-  /// TODO: It doens't look good to define `buffer` as void* and has its
-  /// ownership. Delete void* is a undefined behavior. Cast it to other types
-  /// before delete is a workaround. It's dangerous because developer may store
-  /// other types of data to `buffer`.
-  void* buffer;
-  /// Resolution for the Video buffer.
+  /// Video buffer. If is native, 
+   void* buffer;
+  /// Resolution for the Video buffer
   Resolution resolution;
-  // Buffer type.
+  // Buffer type
   VideoBufferType type;
   ~VideoBuffer() {
     if (type != VideoBufferType::kD3D11Handle)
-      delete[] static_cast<uint8_t*>(buffer);
+      delete[] buffer;
     else
-#if defined(WEBRTC_WIN)
-      delete static_cast<D3D11VAHandle*>(buffer);
-#else
-      RTC_NOTREACHED();
-#endif
+      delete buffer;
   }
 };
 /// VideoRenderWindow wraps a native Window handle
