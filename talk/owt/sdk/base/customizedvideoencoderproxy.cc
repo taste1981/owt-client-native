@@ -44,6 +44,8 @@ int CustomizedVideoEncoderProxy::InitEncode(
   height_ = codec_settings->height;
   bitrate_ = codec_settings->startBitrate * 1000;
   picture_id_ = static_cast<uint16_t>(rand()) & 0x7FFF;
+  gof_.SetGofInfoVP9(TemporalStructureMode::kTemporalStructureMode1);
+  gof_idx_ = 0;
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -195,21 +197,29 @@ int32_t CustomizedVideoEncoderProxy::Encode(
     info.codecSpecific.VP8.keyIdx = webrtc::kNoKeyIdx;
     picture_id_ = (picture_id_ + 1) & 0x7FFF;
   } else if (codec_type_ == webrtc::kVideoCodecVP9) {
-    // TODO(jianlin): this is still not sufficient to enable
-    // encoded vp9 input. when ss_data_available is true,
-    // more info is needed. We may need a parser here.
-    info.codecSpecific.VP9.inter_pic_predicted =
-        (encodedframe._frameType == webrtc::VideoFrameType::kVideoFrameKey);
+    // Phase 1 gaming setting. Will come up with more accurate settings following
+    // vp9 depacketizer impl.
+    bool vp9_key_frame = (encodedframe._frameType == webrtc::VideoFrameType::kVideoFrameKey);
+    if (vp9_key_frame)
+      gof_idx_ = 0;
+    info.codecSpecific.VP9.inter_pic_predicted = vp9_key_frame ? false : true;
     info.codecSpecific.VP9.flexible_mode = false;
     info.codecSpecific.VP9.inter_layer_predicted = false;
-    info.codecSpecific.VP9.temporal_up_switch = false;
-    info.codecSpecific.VP9.gof_idx = kNoGofIdx;
-    info.codecSpecific.VP9.ss_data_available = false;
+    info.codecSpecific.VP9.temporal_up_switch = true;
+    info.codecSpecific.VP9.gof_idx =
+        static_cast<uint8_t>(gof_idx_++ % gof_.num_frames_in_gof);
+    info.codecSpecific.VP9.ss_data_available = vp9_key_frame? true : false;
     info.codecSpecific.VP9.num_spatial_layers = 1;
-    info.codecSpecific.VP9.num_ref_pics = 0;
-    info.codecSpecific.VP9.height[0] = encodedframe._encodedHeight;
-    info.codecSpecific.VP9.width[0] = encodedframe._encodedWidth;
+    info.codecSpecific.VP9.first_frame_in_picture = true;
+    info.codecSpecific.VP9.end_of_picture = true;
+    info.codecSpecific.VP9.spatial_layer_resolution_present = false;
     info.codecSpecific.VP9.temporal_idx = kNoTemporalIdx;
+    if (info.codecSpecific.VP9.ss_data_available) {
+      info.codecSpecific.VP9.spatial_layer_resolution_present = true;
+      info.codecSpecific.VP9.width[0] = width_;
+      info.codecSpecific.VP9.height[0] = height_;
+      info.codecSpecific.VP9.gof.CopyGofInfoVP9(gof_);
+    }
   } else if (codec_type_ == webrtc::kVideoCodecH264) {
     int temporal_id = 0, priority_id = 0;
     bool is_idr = false;
@@ -217,12 +227,14 @@ int32_t CustomizedVideoEncoderProxy::Encode(
         data_ptr, data_size, temporal_id, priority_id, is_idr);
     if (need_frame_marking) {
       info.codecSpecific.H264.temporal_idx = temporal_id;
-      info.codecSpecific.H264.idr_frame = is_idr;
       info.codecSpecific.H264.base_layer_sync = (!is_idr && (temporal_id > 0));
     }
-	info.codecSpecific.H264.picture_id = encoder_buffer_handle->meta_data_.picture_id;
+    info.codecSpecific.H264.idr_frame = is_idr;
+    info.codecSpecific.H264.picture_id = encoder_buffer_handle->meta_data_.picture_id;
     info.codecSpecific.H264.last_fragment_in_frame =
         encoder_buffer_handle->meta_data_.last_fragment;
+    encodedframe._frameType = is_idr ? webrtc::VideoFrameType::kVideoFrameKey
+                                     : webrtc::VideoFrameType::kVideoFrameDelta;
   }
 #ifndef DISABLE_H265
   else if (codec_type_ == webrtc::kVideoCodecH265) {

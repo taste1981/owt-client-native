@@ -118,8 +118,8 @@ void PeerConnectionDependencyFactory::
   GlobalConfiguration::GetBWERateLimits(start_bitrate, min_bitrate,
                                         max_bitrate);
   if (start_bitrate > 0 || min_bitrate > 0 || max_bitrate > 0)
-  field_trial_ += "OWT-BweRateLimits/Enabled-" + std::to_string(start_bitrate) + "," +
-                  std::to_string(min_bitrate) + "," +
+  field_trial_ += "OWT-Bwe-RateLimits/start:" + std::to_string(start_bitrate) + ",min:" +
+                  std::to_string(min_bitrate) + ",max:" +
                   std::to_string(max_bitrate) + "/";
   webrtc::field_trial::InitFieldTrialsFromString(field_trial_.c_str());
   if (!rtc::InitializeSSL()) {

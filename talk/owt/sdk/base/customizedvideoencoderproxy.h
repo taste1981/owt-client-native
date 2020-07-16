@@ -42,6 +42,8 @@ class CustomizedVideoEncoderProxy : public webrtc::VideoEncoder {
   uint32_t last_timestamp_;
   uint64_t last_capture_timestamp_;
   bool update_ts_ = true;
+  uint8_t gof_idx_;
+  webrtc::GofInfoVP9 gof_;
 };
 }
 }
