@@ -1,0 +1,42 @@
+From 25f58eadf99e616516086aca0ab96aa75a4dedc6 Mon Sep 17 00:00:00 2001
+From: Qiu Jianlin <jianlin.qiu@intel.com>
+Date: Thu, 16 Jul 2020 23:05:05 +0800
+Subject: [PATCH] Allow forcing /MD build for msvc
+
+---
+ config/win/BUILD.gn | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/config/win/BUILD.gn b/config/win/BUILD.gn
+index 7b44f0e43..4e5b318c7 100644
+--- a/config/win/BUILD.gn
++++ b/config/win/BUILD.gn
+@@ -455,7 +455,11 @@ config("default_crt") {
+       configs = [ ":dynamic_crt" ]
+     } else {
+       # Desktop Windows: static CRT.
+-      configs = [ ":static_crt" ]
++      if (!is_clang && owt_msvc_build_md) {
++        configs = [ ":dynamic_crt" ]
++      } else {
++        configs = [ ":static_crt" ]
++      }
+     }
+   }
+ }
+@@ -468,7 +472,11 @@ config("release_crt") {
+   if (is_component_build) {
+     cflags = [ "/MD" ]
+   } else {
+-    cflags = [ "/MT" ]
++    if (!is_clang && owt_msvc_build_md) {
++      cflags = [ "/MD" ]
++    } else {
++      cflags = [ "/MT" ]
++    }
+   }
+ }
+ 
+-- 
+2.24.1.windows.2
+

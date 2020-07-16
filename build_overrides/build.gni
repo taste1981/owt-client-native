@@ -78,4 +78,6 @@ declare_args() {
   owt_gpra_header_root = ""
 
   owt_use_gpra = false
+
+  owt_msvc_build_md = false
 }

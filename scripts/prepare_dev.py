@@ -47,6 +47,8 @@ def _patch():
     subprocess.call(['git', 'am', '--skip'], shell=useShell, cwd=THIRD_PARTY_PATH)
   if (subprocess.call(['git', 'am', os.path.join(PATCH_PATH, '0014-Fix-missing-ffmpeg-configure-item-for-msvc-build.patch')], shell=useShell, cwd=FFMPEG_PATH)) != 0:
     subprocess.call(['git', 'am', '--skip'], shell=useShell, cwd=FFMPEG_PATH)
+  if (subprocess.call(['git', 'am', os.path.join(PATCH_PATH, '0015-Allow-forcing-MD-build-for-msvc.patch')], shell=useShell, cwd=BUILD_PATH)) != 0:
+    subprocess.call(['git', 'am', '--skip'], shell=useShell, cwd=BUILD_PATH)
 
 def main(argv):
   _patch()
