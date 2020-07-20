@@ -28,6 +28,7 @@ bool PeerConnectionChannel::InitializePeerConnection() {
   video_transceiver_direction_ = webrtc::RtpTransceiverDirection::kSendRecv;
   configuration_.enable_dtls_srtp = true;
   configuration_.sdp_semantics = webrtc::SdpSemantics::kUnifiedPlan;
+  configuration_.crypto_options->srtp.enable_gcm_crypto_suites = true;
   peer_connection_ =
       (factory_->CreatePeerConnection(configuration_, this)).get();
   if (!peer_connection_.get()) {
