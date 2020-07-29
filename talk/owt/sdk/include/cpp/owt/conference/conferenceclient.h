@@ -353,7 +353,7 @@ class ConferenceClient final
   */
   void GetConnectionStats(
       const std::string& session_id,
-      std::function<void(std::shared_ptr<ConnectionStats>)> on_success,
+      std::function<void(std::shared_ptr<RTCStatsReport>)> on_success,
       std::function<void(std::unique_ptr<Exception>)> on_failure);
   void GetStats(
       const std::string& session_id,

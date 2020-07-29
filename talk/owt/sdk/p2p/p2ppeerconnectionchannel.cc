@@ -1137,7 +1137,7 @@ void P2PPeerConnectionChannel::Stop(
   }
 }
 void P2PPeerConnectionChannel::GetConnectionStats(
-    std::function<void(std::shared_ptr<ConnectionStats>)> on_success,
+    std::function<void(std::shared_ptr<RTCStatsReport>)> on_success,
     std::function<void(std::unique_ptr<Exception>)> on_failure) {
   if (on_success == nullptr) {
     if (on_failure != nullptr) {
@@ -1152,24 +1152,12 @@ void P2PPeerConnectionChannel::GetConnectionStats(
     return;
   }
 
-  rtc::scoped_refptr<FunctionalStatsObserver> observer =
-      FunctionalStatsObserver::Create(std::move(on_success));
-  bool result = peer_connection_->GetStats(
-      observer, nullptr,
-      webrtc::PeerConnectionInterface::kStatsOutputLevelStandard);
-  if (!result) {
-    if (on_failure != nullptr) {
-      event_queue_->PostTask([on_failure] {
-        std::unique_ptr<Exception> e(
-            new Exception(ExceptionType::kP2PClientInvalidState,
-                          "Cannot get connection stats in this state. Please "
-                          "try it after connection is established."));
-        on_failure(std::move(e));
-      });
-    }
-    return;
-  }
+  rtc::scoped_refptr<FunctionalStandardRTCStatsCollectorCallback> observer =
+      FunctionalStandardRTCStatsCollectorCallback::Create(
+          std::move(on_success));
+  peer_connection_->GetStats(observer);
 }
+
 void P2PPeerConnectionChannel::GetStats(
     std::function<void(const webrtc::StatsReports& reports)> on_success,
     std::function<void(std::unique_ptr<Exception>)> on_failure) {

@@ -36,7 +36,7 @@ class Publication {
                       std::function<void(std::unique_ptr<Exception>)> on_failure) = 0;
   /// Get conneciton stats of current publication
   virtual void GetStats(
-      std::function<void(std::shared_ptr<ConnectionStats>)> on_success,
+      std::function<void(std::shared_ptr<RTCStatsReport>)> on_success,
       std::function<void(std::unique_ptr<Exception>)> on_failure) = 0;
   /// Stop current publication.
   virtual void Stop() = 0;

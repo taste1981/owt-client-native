@@ -746,7 +746,7 @@ void ConferenceClient::Leave(
 }
 void ConferenceClient::GetConnectionStats(
     const std::string& session_id,
-    std::function<void(std::shared_ptr<ConnectionStats>)> on_success,
+    std::function<void(std::shared_ptr<RTCStatsReport>)> on_success,
     std::function<void(std::unique_ptr<Exception>)> on_failure) {
   auto pcc = GetConferencePeerConnectionChannel(session_id);
   if (pcc == nullptr) {

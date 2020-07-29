@@ -22,7 +22,7 @@ P2PPublication::P2PPublication(std::shared_ptr<P2PClient> client, std::string ta
 }
 /// Get connection stats of current publication.
 void P2PPublication::GetStats(
-    std::function<void(std::shared_ptr<ConnectionStats>)> on_success,
+    std::function<void(std::shared_ptr<RTCStatsReport>)> on_success,
     std::function<void(std::unique_ptr<Exception>)> on_failure) {
   auto that = p2p_client_.lock();
   if (that == nullptr || ended_) {

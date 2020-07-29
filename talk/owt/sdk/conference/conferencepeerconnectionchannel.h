@@ -102,7 +102,7 @@ class ConferencePeerConnectionChannel
   virtual void OnSignalingMessage(sio::message::ptr message);
   // Get statistics data for the specific stream.
   void GetConnectionStats(
-      std::function<void(std::shared_ptr<ConnectionStats>)> on_success,
+      std::function<void(std::shared_ptr<RTCStatsReport>)> on_success,
       std::function<void(std::unique_ptr<Exception>)> on_failure);
   void GetStats(
       std::function<void(const webrtc::StatsReports& reports)> on_success,

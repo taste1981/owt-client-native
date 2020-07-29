@@ -38,7 +38,7 @@ class ConferenceSubscription : public ConferenceStreamUpdateObserver,
                 std::function<void(std::unique_ptr<Exception>)> on_failure);
     /// Get conneciton stats of current subscription
     void GetStats(
-        std::function<void(std::shared_ptr<ConnectionStats>)> on_success,
+        std::function<void(std::shared_ptr<RTCStatsReport>)> on_success,
         std::function<void(std::unique_ptr<Exception>)> on_failure);
     void GetNativeStats(
         std::function<void(
