@@ -104,7 +104,9 @@ P2PPeerConnectionChannel::P2PPeerConnectionChannel(
       ua_sent_(false),
       stop_send_needed_(true),
       remote_side_offline_(false),
-      ended_(false) {
+      ended_(false),
+      ice_checking_started_(false),
+      srflx_received_(false) {
   RTC_CHECK(signaling_sender_);
   InitializePeerConnection();
   if (event_queue) {
@@ -557,6 +559,8 @@ void P2PPeerConnectionChannel::OnMessageSignal(Json::Value& message) {
     rtc::TypedMessageData<webrtc::IceCandidateInterface*>* param =
         new rtc::TypedMessageData<webrtc::IceCandidateInterface*>(
             ice_candidate);
+    if (ice_candidate->candidate().type() == "srflx")
+      srflx_received_ = true;
     pc_thread_->Post(RTC_FROM_HERE, this, kMessageTypeSetRemoteIceCandidate,
                      param);
   }
@@ -713,6 +717,9 @@ void P2PPeerConnectionChannel::OnIceConnectionChange(
     PeerConnectionInterface::IceConnectionState new_state) {
   RTC_LOG(LS_INFO) << "Ice connection state changed: " << new_state;
   switch (new_state) {
+    case webrtc::PeerConnectionInterface::kIceConnectionChecking:
+      ice_checking_started_ = true;
+      break;
     case webrtc::PeerConnectionInterface::kIceConnectionConnected:
     case webrtc::PeerConnectionInterface::kIceConnectionCompleted:
       ChangeSessionState(kSessionStateConnected);
@@ -776,7 +783,27 @@ void P2PPeerConnectionChannel::OnIceCandidate(
   Json::Value json;
   json[kMessageTypeKey] = kChatSignal;
   json[kMessageDataKey] = signal;
-  SendSignalingMessage(json);
+  // Experiment: for client, if ice-state is not checking, we will wait
+  // until ice connection state switch to that.
+  std::thread([&]() {
+    // If after 5 seconds since we first received any candidates from
+    // server, and we have not yet received any srflx candidates, proceed
+    // to send local candidates out.
+    int srflx_loops = 0;
+    while (!ended_ && (!ice_checking_started_ || !srflx_received_)) {
+      if (srflx_loops > 5)
+        break;
+      else {
+        if (!srflx_received_) {
+          srflx_loops++;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+    }
+    if (!ended_)
+      SendSignalingMessage(json);
+  })
+      .detach();
 }
 void P2PPeerConnectionChannel::OnCreateSessionDescriptionSuccess(
     webrtc::SessionDescriptionInterface* desc) {
@@ -1021,8 +1048,8 @@ void P2PPeerConnectionChannel::GetConnectionStats(
   rtc::scoped_refptr<FunctionalStandardRTCStatsCollectorCallback> observer =
       FunctionalStandardRTCStatsCollectorCallback::Create(
           std::move(on_success));
-  GetStandardStatsMessage* stats_message = new GetStandardStatsMessage(
-      observer);
+  GetStandardStatsMessage* stats_message =
+      new GetStandardStatsMessage(observer);
   pc_thread_->Post(RTC_FROM_HERE, this, kMessageTypeGetStats, stats_message);
 }
 void P2PPeerConnectionChannel::GetStats(

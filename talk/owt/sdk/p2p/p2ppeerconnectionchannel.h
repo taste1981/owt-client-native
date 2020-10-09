@@ -241,6 +241,8 @@ class P2PPeerConnectionChannel : public P2PSignalingReceiverInterface,
   bool stop_send_needed_;
   bool remote_side_offline_;
   bool ended_;
+  std::atomic<bool> ice_checking_started_;
+  std::atomic<bool> srflx_received_;
 };
 }
 }
