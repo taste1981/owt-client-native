@@ -39,7 +39,8 @@ class P2PPeerConnectionChannelObserver {
 // An instance of P2PPeerConnectionChannel manages a session for a specified
 // remote client.
 class P2PPeerConnectionChannel : public P2PSignalingReceiverInterface,
-                                 public PeerConnectionChannel {
+                                 public PeerConnectionChannel,
+      public std::enable_shared_from_this<P2PPeerConnectionChannel> {
  public:
   explicit P2PPeerConnectionChannel(
       PeerConnectionChannelConfiguration configuration,
@@ -163,6 +164,7 @@ class P2PPeerConnectionChannel : public P2PSignalingReceiverInterface,
   // Set remote capability flags based on UA.
   void HandleRemoteCapability(Json::Value& ua);
   void SendUaInfo();
+  void DrainPendingLocalCandidates();
   P2PSignalingSenderInterface* signaling_sender_;
   std::string local_id_;
   std::string remote_id_;
@@ -243,6 +245,8 @@ class P2PPeerConnectionChannel : public P2PSignalingReceiverInterface,
   bool ended_;
   std::atomic<bool> ice_checking_started_;
   std::atomic<bool> srflx_received_;
+  std::vector<Json::Value> local_candidates_;
+  std::mutex local_candidate_mutex_;
 };
 }
 }

@@ -559,8 +559,10 @@ void P2PPeerConnectionChannel::OnMessageSignal(Json::Value& message) {
     rtc::TypedMessageData<webrtc::IceCandidateInterface*>* param =
         new rtc::TypedMessageData<webrtc::IceCandidateInterface*>(
             ice_candidate);
-    if (ice_candidate->candidate().type() == "srflx")
+    if (ice_candidate->candidate().type() == "srflx") {
       srflx_received_ = true;
+      DrainPendingLocalCandidates();
+    }
     pc_thread_->Post(RTC_FROM_HERE, this, kMessageTypeSetRemoteIceCandidate,
                      param);
   }
@@ -783,27 +785,29 @@ void P2PPeerConnectionChannel::OnIceCandidate(
   Json::Value json;
   json[kMessageTypeKey] = kChatSignal;
   json[kMessageDataKey] = signal;
-  // Experiment: for client, if ice-state is not checking, we will wait
-  // until ice connection state switch to that.
-  std::thread([&]() {
-    // If after 5 seconds since we first received any candidates from
-    // server, and we have not yet received any srflx candidates, proceed
-    // to send local candidates out.
-    int srflx_loops = 0;
-    while (!ended_ && (!ice_checking_started_ || !srflx_received_)) {
-      if (srflx_loops > 5)
-        break;
-      else {
-        if (!srflx_received_) {
-          srflx_loops++;
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+  // This is invoked in signaling thread, avoid locking.
+  if (ended_)
+      return;
+
+  if (srflx_received_) {
+    SendSignalingMessage(json);
+  } else {
+    std::lock_guard<std::mutex> candidate_lock(local_candidate_mutex_);
+    local_candidates_.push_back(json);
+
+    // And start a thread to always clear local candidates after 5 seconds
+    std::weak_ptr<P2PPeerConnectionChannel> weak_this = shared_from_this();
+    std::thread([weak_this] {
+      std::this_thread::sleep_for(std::chrono::seconds(5));
+      auto that = weak_this.lock();
+      if (!that) {
+        return;
       }
-    }
-    if (!ended_)
-      SendSignalingMessage(json);
-  })
-      .detach();
+      that->srflx_received_ = true;
+      that->DrainPendingLocalCandidates();
+    })
+        .detach();
+  }
 }
 void P2PPeerConnectionChannel::OnCreateSessionDescriptionSuccess(
     webrtc::SessionDescriptionInterface* desc) {
@@ -1363,6 +1367,14 @@ void P2PPeerConnectionChannel::SendUaInfo() {
   Json::Value ua = UaInfo();
   json[kMessageDataKey] = ua;
   SendSignalingMessage(json);
+}
+
+void P2PPeerConnectionChannel::DrainPendingLocalCandidates() {
+  std::lock_guard<std::mutex> candidate_lock(local_candidate_mutex_);
+  for (auto& candidate : local_candidates_) {
+    SendSignalingMessage(candidate);
+  }
+  local_candidates_.clear();
 }
 }  // namespace p2p
 }  // namespace owt
